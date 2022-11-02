@@ -3,32 +3,45 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-contract ZToken is Ownable, ERC721 {
-    uint price = 0.1 ether;
+contract XYZToken is Ownable, ERC721Enumerable {
 
-    uint256 public totalSupply = 0;
+    event MinterUpdated(address indexed minter);
 
-    constructor() ERC721("ZToken", "ZT") {}
+    // The address who has permissions to mint tokens
+    address public minter;
 
-    function redeem() public payable returns (uint) {
-        require(msg.value >= price, "Price not met");
+    /**
+     * @notice Require that the sender is the minter.
+     */
+    modifier onlyMinter() {
+        require(msg.sender == minter, 'Sender is not the minter');
+        _;
+    }
 
-        uint nextId = totalSupply + 1;
-        _safeMint(_msgSender(), nextId);
-        return nextId;
+    constructor(address owner) ERC721('XYZToken', 'XYZT') {
+        _transferOwnership(owner);
+    }
+
+    function mint(address target, uint tokenId) external onlyMinter {
+        _safeMint(target, tokenId);
+    }
+
+    function exists(uint tokenId) external view returns (bool) {
+        return _exists(tokenId);
     }
 
     function _baseURI() internal pure override returns (string memory) {
-        return "https://example.com/";
+        return "https://ipfs.io/ipfs/QmeSjSinHpPnmXmspMjwiXyN6zS4E9zccariGR3jxcaWtq/";
     }
 
-    function _afterTokenTransfer(address from, address to, uint256 tokenId) internal override {
-        super._afterTokenTransfer(from, to, tokenId);
+    function setMinter(address _minter) external onlyOwner {
+        minter = _minter;
 
-        totalSupply++;
+        emit MinterUpdated(_minter);
     }
 
     // @dev The balance transfer from a contract to an owners
