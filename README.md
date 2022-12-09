@@ -1,13 +1,18 @@
-# Sample Hardhat Project
+# Zeitls Devils 
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+## Contracts
 
-Try running some of the following tasks:
+**ZltDevils** - ERC721 contract with support for different Devil's token groups.  
+**ZtlDevilsAuctionHouse** - Auction contract where Devil's tokens are initially selling.  
+**ZtlDevilsTreasury** - Contract for sold Devil's token funds accumulation.  
+**ZtlDevilsWhitelist** - Contract for whitelisting, every token is considered a key for limited and unique tokens.
 
-```shell
-npx hardhat help
-npx hardhat test
-GAS_REPORT=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+## Development 
+### Install dependencies
+> yarn --frozen-lockfile
+
+### Compile
+> yarn build
+
+### Run tests
+> yarn test
