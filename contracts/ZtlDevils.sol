@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -21,10 +21,10 @@ contract ZtlDevils is Ownable, ERC721Enumerable {
     address public minter;
 
     // The array of id boundaries for each token group
-    uint256[] metadataIds;
+    uint256[] public metadataIds;
 
     // The array of links to ipfs with token metadata
-    string[] metadataUris;
+    string[] public metadataUris;
 
     // OpenSea's Proxy Registry
     IProxyRegistry public immutable proxyRegistry;
@@ -33,11 +33,11 @@ contract ZtlDevils is Ownable, ERC721Enumerable {
      * @notice Require that the sender is the minter.
      */
     modifier onlyMinter() {
-        require(msg.sender == minter, 'Sender is not the minter');
+        require(msg.sender == minter, "Sender is not the minter");
         _;
     }
 
-    constructor(address owner, IProxyRegistry _proxyRegistry) ERC721('Zeitls Devils', 'DEVILS') {
+    constructor(address owner, IProxyRegistry _proxyRegistry) ERC721("Zeitls Devils", "DEVILS") {
         _transferOwnership(owner);
         proxyRegistry = _proxyRegistry;
     }
@@ -102,6 +102,7 @@ contract ZtlDevils is Ownable, ERC721Enumerable {
      * @dev Only callable by the owner when not locked.
      */
     function setMinter(address _minter) external onlyOwner {
+        require(_minter != address(0x0), "Minter can not be a zero address");
         minter = _minter;
         emit MinterUpdated(_minter);
     }

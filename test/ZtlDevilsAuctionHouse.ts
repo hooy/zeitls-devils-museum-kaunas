@@ -10,7 +10,7 @@ describe("ZtlDevilsAuctionHouse", () => {
     const DURATION = 24 * 60 * 60; // 24 hours
     const TIME_BUFFER = 5 * 60; // 5 min
     const MIN_BID_DIFF = 2; // 2% between bids
-    const WETH_ADDRESS = ethers.constants.AddressZero;
+    const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
     function sign(signer: SignerWithAddress) {
         // working example on how sign address using web3js
@@ -69,7 +69,7 @@ describe("ZtlDevilsAuctionHouse", () => {
             const newTimeBuffer = TIME_BUFFER + 60;
             const tx = await auctionHouse.setTimeBuffer(newTimeBuffer);
 
-            expect(tx).to.emit(auctionHouse, "AuctionTimeBufferUpdated")
+            await expect(tx).to.emit(auctionHouse, "AuctionTimeBufferUpdated")
                 .withArgs(newTimeBuffer);
 
             expect(await auctionHouse.timeBuffer()).to.be.equal(newTimeBuffer);
@@ -83,7 +83,7 @@ describe("ZtlDevilsAuctionHouse", () => {
             const newMinDiff = MIN_BID_DIFF + 2;
             const tx = await auctionHouse.setMinBidIncrementPercentage(newMinDiff);
 
-            expect(tx).to.emit(auctionHouse, "AuctionMinBidIncrementPercentageUpdated")
+            await expect(tx).to.emit(auctionHouse, "AuctionMinBidIncrementPercentageUpdated")
                 .withArgs(newMinDiff);
 
             expect(await auctionHouse.minBidIncrementPercentage()).to.be.equal(newMinDiff);
@@ -99,7 +99,7 @@ describe("ZtlDevilsAuctionHouse", () => {
 
             const tx = await auctionHouse.createAuction(tokenId, price, false);
 
-            expect(tx).to.emit(auctionHouse, "AuctionCreated")
+            await expect(tx).to.emit(auctionHouse, "AuctionCreated")
                 .withArgs(tokenId, price);
 
             expect(toStruct(await auctionHouse.auctions(tokenId))).to.deep.equal({
@@ -123,7 +123,7 @@ describe("ZtlDevilsAuctionHouse", () => {
             const tx = await auctionHouse.createAuctions(tokenIds, prices, limited);
 
             for (let i = 0; i < 3; i++) {
-                expect(tx).to.emit(auctionHouse, "AuctionCreated")
+                await expect(tx).to.emit(auctionHouse, "AuctionCreated")
                     .withArgs(tokenIds[i], prices[i]);
 
                 expect(toStruct(await auctionHouse.auctions(tokenIds[i]))).to.deep.equal({
@@ -203,10 +203,10 @@ describe("ZtlDevilsAuctionHouse", () => {
             const blockTime = await time.latest();
             const duration = await this.auctionHouse.duration();
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionStarted")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionStarted")
                 .withArgs(tokenId, blockTime, blockTime + duration);
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionBid")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionBid")
                 .withArgs(tokenId, this.buyer.address, price, false);
 
             await expect(tx).to.changeEtherBalances(
@@ -273,13 +273,13 @@ describe("ZtlDevilsAuctionHouse", () => {
             let nextBlockTime = blockTime + duration - TIME_BUFFER / 2;
             await time.setNextBlockTimestamp(nextBlockTime);
 
-            const tx = await this.auctionHouse.connect(this.secondBuyer)
+            const tx = this.auctionHouse.connect(this.secondBuyer)
                 .bid(tokenId, this.sign(this.secondBuyer), { value: price.mul(2) });
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionBid")
-                .withArgs(tokenId, this.secondBuyer.address, price, true);
+            await expect(tx).to.emit(this.auctionHouse, "AuctionBid")
+                .withArgs(tokenId, this.secondBuyer.address, price.mul(2), true);
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionExtended")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionExtended")
                 .withArgs(tokenId, nextBlockTime + TIME_BUFFER);
         });
     });
@@ -308,13 +308,13 @@ describe("ZtlDevilsAuctionHouse", () => {
 
             const tx = await this.auctionHouse.connect(this.buyer).settleAuction(tokenId);
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionSettled")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionSettled")
                 .withArgs(tokenId, this.buyer.address, price);
 
-            expect(tx).to.emit(this.token, "TokenCreated")
+            await expect(tx).to.emit(this.token, "TokenCreated")
                 .withArgs(1, this.buyer.address);
 
-            expect(tx).to.emit(this.token, "Transfer")
+            await expect(tx).to.emit(this.token, "Transfer")
                 .withArgs(ethers.constants.AddressZero, this.buyer.address, tokenId);
 
             await expect(tx).to.changeEtherBalances(
@@ -324,6 +324,9 @@ describe("ZtlDevilsAuctionHouse", () => {
 
             expect(await this.token.totalSupply()).to.be.equal(1);
             expect(await this.token.balanceOf(this.buyer.address)).to.be.equal(1);
+
+            const { settled } = await this.auctionHouse.auctions(tokenId);
+            expect(settled).to.be.equal(true);
         });
     });
 
@@ -357,10 +360,10 @@ describe("ZtlDevilsAuctionHouse", () => {
             const tx = await this.auctionHouse.connect(this.buyer)
                 .purchase(tokenId, price, expireTime, sign, { value: price });
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionSettled")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionSettled")
                 .withArgs(tokenId, this.buyer.address, price);
 
-            expect(tx).to.emit(this.token, "Transfer")
+            await expect(tx).to.emit(this.token, "Transfer")
                 .withArgs(ethers.constants.AddressZero, this.buyer.address, tokenId);
 
             await expect(tx).to.changeEtherBalances(
@@ -443,7 +446,7 @@ describe("ZtlDevilsAuctionHouse", () => {
             const tx = await this.auctionHouse.connect(this.buyer)
                 .bid(tokenId, this.sign(this.buyer), { value: price });
 
-            expect(tx).to.emit(this.auctionHouse, "AuctionBid")
+            await expect(tx).to.emit(this.auctionHouse, "AuctionBid")
                 .withArgs(tokenId, this.buyer.address, price, false);
         });
 

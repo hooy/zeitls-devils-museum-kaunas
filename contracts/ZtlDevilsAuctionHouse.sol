@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.16;
 
-import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
-import { ReentrancyGuardUpgradeable } from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
-import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
-import { ECDSAUpgradeable } from '@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol';
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IZtlDevils } from "./IZtlDevils.sol";
@@ -79,24 +79,30 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
      * @dev This function can only be called once.
      */
     function initialize(
-        IZtlDevils _token,
-        IZtlDevilsTreasury _treasury,
-        IERC721 _whitelist,
+        address _token,
+        address _treasury,
+        address _whitelist,
         address _signer,
         address _weth,
         uint40 _timeBuffer,
         uint40 _duration,
         uint8 _minBidIncrementPercentage
     ) external initializer {
+        require(_token != address(0x0), "Token address can not be zero");
+        require(_treasury != address(0x0), "Treasury address can not be zero");
+        require(_whitelist != address(0x0), "Whitelist address can not be zero");
+        require(_signer != address(0x0), "Signer address can not be zero");
+        require(_weth != address(0x0), "WETH address can not be zero");
+
         __Pausable_init();
         __ReentrancyGuard_init();
         __Ownable_init();
 
         _pause();
 
-        token = _token;
-        treasury = _treasury;
-        whitelist = _whitelist;
+        token = IZtlDevils(_token);
+        treasury = IZtlDevilsTreasury(_treasury);
+        whitelist = IERC721(_whitelist);
         signer = _signer;
         weth = _weth;
         timeBuffer = _timeBuffer;
@@ -105,7 +111,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     }
 
     /**
-     * @notice Pause the Nouns auction house.
+     * @notice Pause the Devil's auction house.
      * @dev This function can only be called by the owner when the
      * contract is unpaused. While no new auctions can be started when paused,
      * anyone can settle an ongoing auction.
@@ -115,7 +121,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     }
 
     /**
-     * @notice Unpause the Nouns auction house.
+     * @notice Unpause the Devil's auction house.
      * @dev This function can only be called by the owner when the contract is paused.
      */
     function unpause() external onlyOwner {
@@ -161,7 +167,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     /**
      * @notice Return the following minimal amount for a bid.
      */
-    function nextBidAmount(uint256 tokenId) view external returns (uint256) {
+    function nextBidAmount(uint256 tokenId) external view returns (uint256) {
         Auction memory auction = auctions[tokenId];
         require(auction.reservePrice > 0, "Auction does not exist");
         return _nextBidAmount(auction.amount);
@@ -175,14 +181,15 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
      */
     function bid(uint256 tokenId, bytes calldata signature) external payable whenNotPaused nonReentrant {
         Auction storage auction = auctions[tokenId];
+        uint40 time = uint40(block.timestamp);
 
         require(auction.reservePrice > 0, "Auction does not exist");
         require(!auction.limited || whitelist.balanceOf(_msgSender()) > 0, "Sender is not whitelisted");
-        require(msg.value >= auction.reservePrice, 'Must send at least reservePrice');
-        require(auction.startTime == 0 || block.timestamp < auction.endTime, 'Auction expired');
+        require(msg.value >= auction.reservePrice, "Must send at least reservePrice");
+        require(auction.startTime == 0 || time < auction.endTime, "Auction expired");
         require(
             msg.value >= _nextBidAmount(auction.amount),
-            'Must send more than last bid by minBidIncrementPercentage amount'
+            "Must send more than last bid by minBidIncrementPercentage amount"
         );
 
         // pad address 20 bytes into 32 bytes
@@ -191,7 +198,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
 
         // the first bid on the auction, start the countdown
         if (auction.startTime == 0) {
-            auction.startTime = uint40(block.timestamp);
+            auction.startTime = time;
             auction.endTime = auction.startTime + duration;
             emit AuctionStarted(tokenId, auction.startTime, auction.endTime);
         }
@@ -207,9 +214,9 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         auction.bidder = payable(_msgSender());
 
         // extend the auction if the bid was received within `timeBuffer` of the auction end time
-        bool extended = auction.endTime - uint40(block.timestamp) < timeBuffer;
+        bool extended = auction.endTime - time < timeBuffer;
         if (extended) {
-            auction.endTime = uint40(block.timestamp) + timeBuffer;
+            auction.endTime = time + timeBuffer;
         }
 
         emit AuctionBid(tokenId, _msgSender(), msg.value, extended);
@@ -262,13 +269,12 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         emit AuctionCreated(tokenId, reservePrice);
     }
 
-    function _nextBidAmount(uint256 amount) view internal returns (uint256) {
+    function _nextBidAmount(uint256 amount) internal view returns (uint256) {
         return amount + ((amount * minBidIncrementPercentage) / 100);
     }
 
     /**
      * @notice Settle an auction, finalizing the bid and paying out to the owner.
-     * @dev If there are no bids, the Noun is burned.
      */
     function _settleAuction(uint256 tokenId) internal {
         Auction memory auction = auctions[tokenId];
@@ -277,7 +283,8 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         require(!auction.settled, "Auction has already been settled");
         require(block.timestamp >= auction.endTime, "Auction hasn't completed");
 
-        auction.settled = true;
+        // settle auction and make them unavailable
+        auctions[tokenId].settled = true;
 
         token.mint(auction.bidder, tokenId);
 

@@ -6,14 +6,14 @@ import { shouldBehaveLikeERC721, shouldBehaveLikeERC721Enumerable } from "./open
 describe("ZtlDevils", () => {
 
     async function deployFixture() {
-        const [deployer, owner, buyer] = await ethers.getSigners();
+        const [deployer, owner, buyer, ...others] = await ethers.getSigners();
 
         const Token = await ethers.getContractFactory("ZtlDevils");
         const token = await Token.deploy(owner.address, ethers.constants.AddressZero);
 
         await token.connect(owner).setMinter(deployer.address);
 
-        return { deployer, token, owner, buyer };
+        return { deployer, token, owner, buyer, others };
     }
 
     describe("deployment", function () {
@@ -45,22 +45,23 @@ describe("ZtlDevils", () => {
 
     describe("management", function () {
         it("should change minter", async function () {
-            const { token, owner, deployer } = await loadFixture(deployFixture);
+            const { token, owner, deployer, others } = await loadFixture(deployFixture);
+            const newSigner = others[0];
 
             expect(await token.minter()).to.be.equal(deployer.address);
 
-            const tx = await token.connect(owner).setMinter(ethers.constants.AddressZero);
+            const tx = token.connect(owner).setMinter(newSigner.address);
 
-            expect(tx).to.emit(this.token, "MinterUpdated")
-                .withArgs(ethers.constants.AddressZero);
+            await expect(tx).to.emit(token, "MinterUpdated")
+                .withArgs(newSigner.address);
         });
 
         it("should change owner", async function () {
             const { token, owner, deployer } = await loadFixture(deployFixture);
 
-            const tx = await token.connect(owner).transferOwnership(deployer.address);
+            const tx = token.connect(owner).transferOwnership(deployer.address);
 
-            expect(tx).to.emit(this.token, "OwnershipTransferred")
+            await expect(tx).to.emit(token, "OwnershipTransferred")
                 .withArgs(owner.address, deployer.address);
         });
     });
@@ -73,10 +74,10 @@ describe("ZtlDevils", () => {
 
             const tx = await token.connect(deployer).mint(owner.address, 1);
 
-            expect(tx).to.emit(this.token, "TokenCreated")
+            await expect(tx).to.emit(token, "TokenCreated")
                 .withArgs(1, owner.address);
 
-            expect(tx).to.emit(this.token, "Transfer")
+            await expect(tx).to.emit(token, "Transfer")
                 .withArgs(ethers.constants.AddressZero, owner.address, 1);
 
             expect(await token.exists(1)).to.be.equal(true);
@@ -89,10 +90,10 @@ describe("ZtlDevils", () => {
 
             const tx = await token.connect(deployer).burn(1);
 
-            expect(tx).to.emit(this.token, "TokenBurned")
+            await expect(tx).to.emit(token, "TokenBurned")
                 .withArgs(1);
 
-            expect(tx).to.emit(this.token, "Transfer")
+            await expect(tx).to.emit(token, "Transfer")
                 .withArgs(owner.address, ethers.constants.AddressZero, 1);
 
             expect(await token.exists(1)).to.be.equal(false);
