@@ -114,13 +114,15 @@ describe("ZtlDevils", () => {
             await token.mint(owner.address, 5);
             await token.mint(owner.address, 15);
 
-            expect(await token.tokenURI(5)).to.equal("a");
-            expect(await token.tokenURI(15)).to.equal("b");
+            expect(await token.tokenURI(5)).to.equal("a5");
+            expect(await token.tokenURI(15)).to.equal("b15");
         });
 
         it("should expand metadata links", async () => {
             const { token, owner } = await loadFixture(deployFixture);
 
+            await token.mint(owner.address, 1);
+            await token.mint(owner.address, 4);
             await token.mint(owner.address, 5);
             await token.mint(owner.address, 15);
             await token.mint(owner.address, 25);
@@ -131,18 +133,33 @@ describe("ZtlDevils", () => {
                 ["a", "b"],
             );
 
-            expect(await token.tokenURI(15)).to.equal("b");
-            expect(await token.tokenURI(25)).to.equal("b");
-            expect(await token.tokenURI(35)).to.equal("b");
+            expect(await token.tokenURI(15)).to.equal("b15");
+            expect(await token.tokenURI(25)).to.equal("b25");
+            expect(await token.tokenURI(35)).to.equal("b35");
 
             await token.connect(owner).updateMetadata(
-                [0, 10, 20, 30],
+                [0, 5, 20, 30],
                 ["a", "b", "c", "d"],
             );
 
-            expect(await token.tokenURI(15)).to.equal("b");
-            expect(await token.tokenURI(25)).to.equal("c");
-            expect(await token.tokenURI(35)).to.equal("d");
+            expect(await token.tokenURI(1)).to.equal("a1");
+            expect(await token.tokenURI(4)).to.equal("a4");
+            expect(await token.tokenURI(5)).to.equal("b5");
+            expect(await token.tokenURI(15)).to.equal("b15");
+            expect(await token.tokenURI(25)).to.equal("c25");
+            expect(await token.tokenURI(35)).to.equal("d35");
+
+            await token.connect(owner).updateMetadata(
+                [0, 5, 20, 30],
+                ["d", "f", "g", "d"],
+            );
+
+            expect(await token.tokenURI(1)).to.equal("d1");
+            expect(await token.tokenURI(4)).to.equal("d4");
+            expect(await token.tokenURI(5)).to.equal("f5");
+            expect(await token.tokenURI(15)).to.equal("f15");
+            expect(await token.tokenURI(25)).to.equal("g25");
+            expect(await token.tokenURI(35)).to.equal("d35");
         });
     });
 

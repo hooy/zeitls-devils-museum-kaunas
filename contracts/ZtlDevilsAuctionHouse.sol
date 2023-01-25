@@ -12,6 +12,12 @@ import { IZtlDevils } from "./IZtlDevils.sol";
 import { IZtlDevilsTreasury } from "./IZtlDevilsTreasury.sol";
 import { IWETH } from "./weth/IWETH.sol";
 
+/**
+ * @title Zeitls Devil's Auction House
+ * Contract is responsible for the initial token auction.
+ * Every token will be generated after a successfully conducted auction.
+ * The contract is responsible to make each auction fair.
+ */
 contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeable, OwnableUpgradeable {
     using ECDSAUpgradeable for bytes32;
 

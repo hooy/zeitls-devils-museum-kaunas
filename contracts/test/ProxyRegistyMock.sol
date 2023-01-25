@@ -12,7 +12,7 @@ contract ProxyRegistryMock is IProxyRegistry {
         operator = _operator;
     }
 
-    function proxies(address addr) external view returns (address) {
+    function proxies(address) external view returns (address) {
         return operator;
     }
 }

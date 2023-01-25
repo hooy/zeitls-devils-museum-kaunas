@@ -4,11 +4,19 @@ pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract ZtlDevilsTreasury is OwnableUpgradeable {
+/**
+ * @title Zeitls Devil's Treasuary
+ * Contract for project funds accumulation from sales (direct or aftermarket).
+ * Contains affiliates' addresses for the following rewards distribution.
+ */
+contract ZtlDevilsTreasury is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
 
     event Reward(address indexed payee, uint256 amount);
+
+    uint256 private constant SCALE = 1000; // support decimals (e.g. 2.5%)
 
     // Income stream from marketplaces as creators fee
     uint public royalty;
@@ -50,25 +58,25 @@ contract ZtlDevilsTreasury is OwnableUpgradeable {
     /**
      * @notice Distribute income between maintainer and affiliates according to the shares.
      */
-    function distribute() external onlyOwner {
+    function distribute() external onlyOwner nonReentrant {
         uint total = income + royalty;
 
         // 20% from direct sells must be kept for the project maintenance
-        uint reserve = total * 20 / 100;
+        uint reserve = total * 200 / SCALE;
         uint avail = total - reserve;
 
         // distribute rewards to affiliates
         uint sent = 0;
         for (uint8 i = 0; i < affiliates.length(); i++) {
             (address affiliate, uint256 share) = affiliates.at(i);
-            uint amount = avail * share / 100;
-            payable(affiliate).transfer(amount);
+            uint amount = avail * share / SCALE;
+            _safeTransferETH(affiliate, amount);
             sent += amount;
             emit Reward(affiliate, amount);
         }
 
-        uint reward = reserve + (avail * (100 - shares) / 100);
-        payable(maintainer).transfer(reward);
+        uint reward = reserve + (avail * (SCALE - shares) / SCALE);
+        _safeTransferETH(maintainer, reward);
         emit Reward(maintainer, reward);
 
         if (total != (sent + reward)) {
@@ -94,7 +102,7 @@ contract ZtlDevilsTreasury is OwnableUpgradeable {
                 revert("Share overwrite is forbidden");
             }
 
-            if (shares > 100) {
+            if (shares > SCALE) {
                 revert("Shares total amount for affiliates limit exceeded");
             }
         }
@@ -109,5 +117,14 @@ contract ZtlDevilsTreasury is OwnableUpgradeable {
                 shares -= share;
             }
         }
+    }
+
+    /**
+     * @notice Transfer ETH and return the success status.
+     * @dev This function only forwards 30,000 gas to the callee.
+     */
+    function _safeTransferETH(address to, uint256 value) internal returns (bool) {
+        (bool success, ) = to.call{ value: value, gas: 30_000 }(new bytes(0));
+        return success;
     }
 }

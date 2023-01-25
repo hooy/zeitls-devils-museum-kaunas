@@ -24,7 +24,7 @@ describe("ZtlDevilsTreasury", () => {
             [wei("1"), wei("1").mul(-1)]
         );
 
-        await expect(await treasury.income()).to.be.equal(wei("1"));
+        expect(await treasury.income()).to.be.equal(wei("1"));
     });
 
     it("royalty", async function () {
@@ -40,7 +40,7 @@ describe("ZtlDevilsTreasury", () => {
             [wei("1"), wei("1").mul(-1)]
         );
 
-        await expect(await treasury.royalty()).to.be.equal(wei("1"));
+        expect(await treasury.royalty()).to.be.equal(wei("1"));
     });
 
     describe("affiliates", function () {
@@ -81,12 +81,12 @@ describe("ZtlDevilsTreasury", () => {
         it("forbid share limit exceeding", async function () {
             const { treasury, others } = await loadFixture(deployFixture);
 
-            await expect(treasury.addAffiliates([others[0].address, others[1].address], [15, 95]))
+            await expect(treasury.addAffiliates([others[0].address, others[1].address], [150, 950]))
                 .to.be.revertedWith("Shares total amount for affiliates limit exceeded");
 
-            await treasury.addAffiliates([others[0].address, others[1].address], [15, 15]);
+            await treasury.addAffiliates([others[0].address, others[1].address], [150, 150]);
 
-            await expect(treasury.addAffiliates([others[2].address], [85]))
+            await expect(treasury.addAffiliates([others[2].address], [850]))
                 .to.be.revertedWith("Shares total amount for affiliates limit exceeded");
         });
 
@@ -101,6 +101,22 @@ describe("ZtlDevilsTreasury", () => {
     });
 
     describe("distribution", function () {
+        it("maintainer only", async function () {
+            const { treasury, maintainer, buyer } = await loadFixture(deployFixture);
+
+            await buyer.sendTransaction({
+                to: treasury.address,
+                value: wei("1"),
+            }); 
+
+            const tx = await treasury.distribute(); 
+
+            await expect(tx).to.changeEtherBalances(
+                [treasury, maintainer],
+                [wei("1").mul(-1), wei("1")]
+            );
+        });
+
         it("distribute auction income", async function () {
             const { treasury, maintainer, buyer, others } = await loadFixture(deployFixture);
 
@@ -109,7 +125,7 @@ describe("ZtlDevilsTreasury", () => {
 
             await treasury.addAffiliates(
                 [others[0].address, others[1].address, others[2].address],
-                [15, 3, 5]
+                [150, 30, 50]
             );
 
             // funds from auctions
@@ -150,6 +166,28 @@ describe("ZtlDevilsTreasury", () => {
 
             expect(tx).to.emit(this.treasury, "Reward")
                 .withArgs(others[2], perc(affi, 0.05));
+        });
+    });
+
+    (process.env.FORK ? describe : describe.skip)("Gnosis Wallet", function () {
+        it("transfer to gnosis wallet", async function () {
+            const gnosisWallet = "0xd228EB6F69258D07dA7b1235C995133Cd80caD5b"; // wallet on goerli
+            const Treasury = await ethers.getContractFactory("ZtlDevilsTreasury");
+            const treasury = await upgrades.deployProxy(Treasury, [gnosisWallet]);
+
+            const [owner] = await ethers.getSigners();
+
+            await owner.sendTransaction({
+                to: treasury.address,
+                value: wei("1"),
+            }); 
+
+            const tx = await treasury.distribute();
+
+            await expect(tx).to.changeEtherBalances(
+                [treasury, gnosisWallet],
+                [wei("1").mul(-1), wei("1")]
+            );
         });
     });
 });

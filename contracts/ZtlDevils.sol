@@ -8,8 +8,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IProxyRegistry } from "./opensea/IProxyRegistry.sol";
 
-// @title The Devil's ERC-721 token
+/**
+ * @title Zeitls Devil's token
+ * Every Devil's token represents a unique Devil object backed by a museum certificate.
+ * Devil's token is HBT (history-backed token) and fully compatible with ERC721.
+ */
 contract ZtlDevils is Ownable, ERC721Enumerable {
+    using Strings for uint256;
 
     event TokenCreated(uint256 indexed tokenId, address indexed owner);
 
@@ -94,7 +99,7 @@ contract ZtlDevils is Ownable, ERC721Enumerable {
             }
         }
 
-        return metadataUris[ipfsIndex];
+        return bytes(metadataUris[ipfsIndex]).length > 0 ? string(abi.encodePacked(metadataUris[ipfsIndex], tokenId.toString())) : "";
     }
 
     /**
