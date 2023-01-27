@@ -11,7 +11,7 @@ const definition = (config: DeploymentConfig, state: State): DeploymentContract[
         },
         {
             type: "Regular",
-            name: "ZtlDevilsWhitelist",
+            name: "ZtlKey",
             args: [config.whitelistUri],
         },
         {
@@ -25,7 +25,7 @@ const definition = (config: DeploymentConfig, state: State): DeploymentContract[
             args: [
                 state.address("ZtlDevils"), 
                 state.address("ZtlDevilsTreasury"), 
-                state.address("ZtlDevilsWhitelist"),
+                state.address("ZtlKey"),
                 config.signerKYC, config.weth, config.timeBuffer,
                 config.duration, config.minBidDiff
             ]

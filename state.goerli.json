@@ -1,31 +1,31 @@
 {
     "ZtlDevils": {
-        "address": "0x9A57F0d9D96d59F9752Ce67a8ff1A7639387d01f",
+        "address": "0x4c1F794666cAdD1434f8CCD65ca9795BF80809F2",
         "constructorArgs": [
             "0x9f594da9f93f727d671EC4AA6B1f5A5B94a36A98",
             "0x0000000000000000000000000000000000000000"
         ]
     },
-    "ZtlDevilsWhitelist": {
-        "address": "0x5B4C09394043784e9C00900cA2aD8b7D18392D81",
+    "ZtlKey": {
+        "address": "0x3BBd4fCB5cF2FbD2Afa8a6D589c1042A1304e0Bb",
         "constructorArgs": [
             "ipfs://"
         ]
     },
     "ZtlDevilsTreasury": {
-        "address": "0x53886a2C4bD81b22F0457356079783CF5409dbd9",
-        "impl": "0xf4b5613e2953221fb4653171841411137C20352C",
+        "address": "0xEA61cb88A9D5aE4fB3AA81719992142C4727288D",
+        "impl": "0x08db2a5Bb603019eD4546B40d95c568d67ca39d0",
         "initArgs": [
             "0xd228EB6F69258D07dA7b1235C995133Cd80caD5b"
         ]
     },
     "ZtlDevilsAuctionHouse": {
-        "address": "0xbbc4D1E80ad700B9b3874489063D1030109982dC",
-        "impl": "0xdf069FC704Dbc42b51C2D56832FDdC441Bfc40aB",
+        "address": "0x4C93510037c4EdEF3D25FF5cD250749067B84351",
+        "impl": "0xcb5b94B927919E896E18fBBF357F709e7E86C335",
         "initArgs": [
-            "0x9A57F0d9D96d59F9752Ce67a8ff1A7639387d01f",
-            "0x53886a2C4bD81b22F0457356079783CF5409dbd9",
-            "0x5B4C09394043784e9C00900cA2aD8b7D18392D81",
+            "0x4c1F794666cAdD1434f8CCD65ca9795BF80809F2",
+            "0xEA61cb88A9D5aE4fB3AA81719992142C4727288D",
+            "0x3BBd4fCB5cF2FbD2Afa8a6D589c1042A1304e0Bb",
             "0xF180987279e6a3bd7FCBb7d498D07823BB385fd4",
             "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
             600,

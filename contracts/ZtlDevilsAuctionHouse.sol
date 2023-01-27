@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -35,6 +35,8 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
 
     event AuctionMinBidIncrementPercentageUpdated(uint8 minBidIncrementPercentage);
 
+    event AuctionWhitelistAddress(address indexed participant, bool state);
+
     struct Auction {
         // The minimum price for a token
         uint256 reservePrice;
@@ -48,18 +50,18 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         address payable bidder;
         // Whether or not the auction has been settled
         bool settled;
-        // Limited auction is available only for whitelisted addresses
+        // Limited and exclusive auction which is available only for whitelisted addresses
         bool limited;
     }
 
-    // The ERC721 token contract
+    // The Devil's token contract
     IZtlDevils public token;
 
     // Contract for holding auction released funds
     IZtlDevilsTreasury public treasury;
 
-    // The ERC721 whitelist token contract for community members
-    IERC721 public whitelist;
+    // The Zeitls Key contract for participation in exlusive auction sales
+    IERC721 public zeitls;
 
     // The address of the WETH contract
     address public weth;
@@ -79,6 +81,9 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     // Token ID to the auction
     mapping (uint => Auction) public auctions;
 
+    // Addresses who can participate in exclusive auction sales
+    mapping (address => bool) public whitelist;
+
     /**
      * @notice Initialize the auction and base contracts,
      * populate configuration values, and pause the contract.
@@ -87,7 +92,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     function initialize(
         address _token,
         address _treasury,
-        address _whitelist,
+        address _zeitls,
         address _signer,
         address _weth,
         uint40 _timeBuffer,
@@ -96,7 +101,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
     ) external initializer {
         require(_token != address(0x0), "Token address can not be zero");
         require(_treasury != address(0x0), "Treasury address can not be zero");
-        require(_whitelist != address(0x0), "Whitelist address can not be zero");
+        require(_zeitls != address(0x0), "Zeitls address can not be zero");
         require(_signer != address(0x0), "Signer address can not be zero");
         require(_weth != address(0x0), "WETH address can not be zero");
 
@@ -108,7 +113,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
 
         token = IZtlDevils(_token);
         treasury = IZtlDevilsTreasury(_treasury);
-        whitelist = IERC721(_whitelist);
+        zeitls = IERC721(_zeitls);
         signer = _signer;
         weth = _weth;
         timeBuffer = _timeBuffer;
@@ -190,7 +195,7 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         uint40 time = uint40(block.timestamp);
 
         require(auction.reservePrice > 0, "Auction does not exist");
-        require(!auction.limited || whitelist.balanceOf(_msgSender()) > 0, "Sender is not whitelisted");
+        require(!auction.limited || _isInWhitelist(_msgSender()), "Sender is not whitelisted");
         require(msg.value >= auction.reservePrice, "Must send at least reservePrice");
         require(auction.startTime == 0 || time < auction.endTime, "Auction expired");
         require(
@@ -236,6 +241,10 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         _settleAuction(tokenId);
     }
 
+    /**
+     * @notice Makes a token purchase with off-chain permission with a dedicated price.
+     * The permission is time limited and valid until expire time.
+     */
     function purchase(uint256 tokenId, uint256 price, uint40 expireTime, bytes calldata signature) external payable {
         require(block.timestamp <= expireTime, "Signature with a fixed price has been expired");
         require(msg.value >= price, "Insufficient funds for a purchase");
@@ -255,6 +264,33 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         emit AuctionSettled(tokenId, _msgSender(), msg.value);
     }
 
+    /**
+     * @notice Add addresses to the contract whitelist which allows participation in exclusive sales.
+     */
+    function addWhitelistAddress(address[] calldata addresses) external onlyOwner {
+        require(addresses.length > 0, "Addresses cannot be empty");
+
+        for (uint i = 0; i < addresses.length; i++) {
+            whitelist[addresses[i]] = true;
+            emit AuctionWhitelistAddress(addresses[i], true);
+        }
+    }
+
+    /**
+     * @notice Remove addresses from the contract whitelist and denies participation in exclusive sales.
+     */
+    function removeWhitelistAddress(address[] calldata addresses) external onlyOwner {
+        require(addresses.length > 0, "Addresses cannot be empty");
+
+        for (uint i = 0; i < addresses.length; i++) {
+            whitelist[addresses[i]] = false;
+            emit AuctionWhitelistAddress(addresses[i], false);
+        }
+    }
+
+    /**
+     * @notice Creates the auction for a token with a reserve price.
+     */
     function _createAuction(uint tokenId, uint reservePrice, bool limited) internal {
         require(reservePrice > 0, "Reserve price must be defined");
         require(auctions[tokenId].reservePrice == 0, "Auction already exist");
@@ -275,12 +311,15 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         emit AuctionCreated(tokenId, reservePrice);
     }
 
+    /**
+     * @notice Computes the next bid amount using the contract increment percentage.
+     */
     function _nextBidAmount(uint256 amount) internal view returns (uint256) {
         return amount + ((amount * minBidIncrementPercentage) / 100);
     }
 
     /**
-     * @notice Settle an auction, finalizing the bid and paying out to the owner.
+     * @notice Settles an auction, finalizing the bid and paying out to the owner.
      */
     function _settleAuction(uint256 tokenId) internal {
         Auction memory auction = auctions[tokenId];
@@ -299,6 +338,14 @@ contract ZtlDevilsAuctionHouse is PausableUpgradeable, ReentrancyGuardUpgradeabl
         }
 
         emit AuctionSettled(tokenId, auction.bidder, auction.amount);
+    }
+
+    /**
+     * @notice Checks do address has access to exclusive sales.
+     * @dev Look into the contract whitelist first otherwise check for Zeitls Key.
+     */
+    function _isInWhitelist(address _address) internal view returns (bool) {
+        return whitelist[_address] || zeitls.balanceOf(_msgSender()) > 0;
     }
 
     /**

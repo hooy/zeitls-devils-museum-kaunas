@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -77,7 +77,7 @@ contract ZtlDevils is Ownable, ERC721Enumerable {
      */
     function isApprovedForAll(address owner, address operator) public view override(IERC721, ERC721) returns (bool) {
         // Whitelist OpenSea proxy contract for easy trading.
-        if (proxyRegistry.proxies(owner) == operator) {
+        if (address(proxyRegistry) != address(0x0) && proxyRegistry.proxies(owner) == operator) {
             return true;
         }
         return super.isApprovedForAll(owner, operator);

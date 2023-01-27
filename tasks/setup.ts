@@ -10,7 +10,7 @@ task("setup", "Setup Zeitls Devils contracts")
         const token = Token.attach(contracts["ZtlDevils"].address);
 
         // make auction house as token minter
-        let tx = await token.setMinter(contracts["ZtlDevils"].address);
+        let tx = await token.setMinter(contracts["ZtlDevilsAuctionHouse"].address);
         await tx.wait();
         console.log(`Link token contract with auction house: ${tx.hash}`);
 

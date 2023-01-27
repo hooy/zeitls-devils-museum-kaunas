@@ -5,7 +5,7 @@
 **ZltDevils** - ERC721 contract with support for different Devil's token groups.  
 **ZtlDevilsAuctionHouse** - Auction contract where Devil's tokens are initially selling.  
 **ZtlDevilsTreasury** - Contract for sold Devil's token funds accumulation.  
-**ZtlDevilsWhitelist** - Contract for whitelisting, every token is considered a key for limited and unique tokens.
+**ZtlKey** - Contract for whitelisting, every token is considered a key for limited and unique tokens.
 
 ## Development 
 ### Install dependencies

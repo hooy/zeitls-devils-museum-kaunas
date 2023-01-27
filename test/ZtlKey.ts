@@ -2,18 +2,18 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("ZtlDevilsWhitelist", () => {
+describe("ZtlKey", () => {
 
     async function deployFixture() {
         const [deployer, ...others] = await ethers.getSigners();
 
-        const Whitelist = await ethers.getContractFactory("ZtlDevilsWhitelist");
+        const Whitelist = await ethers.getContractFactory("ZtlKey");
         const whitelist = await Whitelist.deploy("https://abc.xyz");
 
         return { deployer, others, whitelist };
     }
 
-    describe("whitelist management", function () {
+    describe("management", function () {
         it("add", async function () {
             const { others, whitelist } = await loadFixture(deployFixture);
 

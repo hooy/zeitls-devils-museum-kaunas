@@ -37,19 +37,19 @@ describe("ZtlDevilsAuctionHouse", () => {
         const Treasury = await ethers.getContractFactory("ZtlDevilsTreasury");
         const treasury = await upgrades.deployProxy(Treasury, [ethers.constants.AddressZero]);
 
-        const Whitelist = await ethers.getContractFactory("ZtlDevilsWhitelist");
-        const whitelist = await Whitelist.deploy("https://abc.xyz");
+        const ZtlKey = await ethers.getContractFactory("ZtlKey");
+        const ztlkey = await ZtlKey.deploy("https://abc.xyz");
 
         const AuctionHouse = await ethers.getContractFactory("ZtlDevilsAuctionHouse");
         const auctionHouse = await upgrades.deployProxy(AuctionHouse, [
-            token.address, treasury.address, whitelist.address, signer.address,
+            token.address, treasury.address, ztlkey.address, signer.address,
             WETH_ADDRESS, TIME_BUFFER, DURATION, MIN_BID_DIFF
         ]);
 
         await token.connect(owner).setMinter(auctionHouse.address);
         await auctionHouse.unpause();
 
-        return { deployer, token, auctionHouse, treasury, whitelist, owner, buyer, signer, sign: sign(signer), others };
+        return { deployer, token, auctionHouse, treasury, ztlkey, owner, buyer, signer, sign: sign(signer), others };
     }
 
     describe("deployment", function () {
@@ -426,22 +426,36 @@ describe("ZtlDevilsAuctionHouse", () => {
         });
     });
 
-    describe("whitelist", function () {
+    describe("exclusive sale", function () {
         const tokenId = 1;
         const price = wei("1");
 
         beforeEach(async function () {
-            const { auctionHouse, token, whitelist, buyer, sign } = await loadFixture(deployFixture);
+            const { auctionHouse, token, ztlkey, buyer, others, sign } = await loadFixture(deployFixture);
             await auctionHouse.createAuction(tokenId, price, true);
+            await auctionHouse.createAuction(tokenId + 1, price, false);
+
             this.auctionHouse = auctionHouse;
             this.token = token;
-            this.whitelist = whitelist;
+            this.ztlkey = ztlkey;
             this.buyer = buyer;
             this.sign = sign;
+            this.party1 = others[6];
+            this.party2 = others[7];
         });
 
         it("should allow bid when sender is whitelisted", async function () {
-            await this.whitelist.mint(this.buyer.address);
+            await this.auctionHouse.addWhitelistAddress([this.party1.address, this.party2.address]);
+           
+            const tx = await this.auctionHouse.connect(this.party1)
+                .bid(tokenId, this.sign(this.party1), { value: price });
+
+            await expect(tx).to.emit(this.auctionHouse, "AuctionBid")
+                .withArgs(tokenId, this.party1.address, price, false);
+        });
+
+        it("should allow bid when a sender has Zeitls Key", async function () {
+            await this.ztlkey.mint(this.buyer.address);
 
             const tx = await this.auctionHouse.connect(this.buyer)
                 .bid(tokenId, this.sign(this.buyer), { value: price });
@@ -450,7 +464,18 @@ describe("ZtlDevilsAuctionHouse", () => {
                 .withArgs(tokenId, this.buyer.address, price, false);
         });
 
-        it("should forbid bid on limited auction without whitelist", async function () {
+        it("should allow bid on basic sale", async function () {
+            await this.ztlkey.mint(this.buyer.address);
+            await this.auctionHouse.addWhitelistAddress([this.buyer.address]);
+
+            const tx = await this.auctionHouse.connect(this.buyer)
+                .bid(tokenId, this.sign(this.buyer), { value: price });
+
+            await expect(tx).to.emit(this.auctionHouse, "AuctionBid")
+                .withArgs(tokenId, this.buyer.address, price, false);
+        });
+
+        it("should forbid bid on limited auction without whitelist or key", async function () {
             await expect(this.auctionHouse.connect(this.buyer)
                 .bid(tokenId, this.sign(this.buyer), { value: price }))
                 .to.be.revertedWith("Sender is not whitelisted");
