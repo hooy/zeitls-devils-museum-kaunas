@@ -5,6 +5,7 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "hardhat/console.sol";
 
 /**
  * @title Zeitls Devil's Treasuary
@@ -75,7 +76,7 @@ contract ZtlDevilsTreasury is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             emit Reward(affiliate, amount);
         }
 
-        uint reward = reserve + (avail * (SCALE - shares) / SCALE);
+        uint reward = total - sent;
         _safeTransferETH(maintainer, reward);
         emit Reward(maintainer, reward);
 
