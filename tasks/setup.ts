@@ -150,4 +150,19 @@ task("setup", "Setup Zeitls Devils contracts")
         );
 
         console.log(`Affiliates added: ${tx.hash}`);
+
+        tx = await token.transferOwnership(config.maintainer);
+        console.log("Token owner change:", tx.hash);
+
+        tx = await treasury.transferOwnership(config.maintainer);
+        console.log("Treasury owner change:", tx.hash);
+
+        tx = await zeitlsKey.transferOwnership(config.maintainer);
+        console.log("Zeitls Key owner change:", tx.hash);
+
+        const AuctionHouse = await ethers.getContractFactory("ZtlDevilsAuctionHouse");
+        const auctionHouse = AuctionHouse.attach(contracts["ZtlDevilsAuctionHouse"].address);
+
+        tx = await auctionHouse.transferOwnership(config.maintainer);
+        console.log("Auction House owner change:", tx.hash);
     });
