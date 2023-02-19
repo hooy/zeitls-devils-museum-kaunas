@@ -54,7 +54,7 @@ describe("ZtlDevils", () => {
 
             await expect(tx).to.emit(token, "MinterUpdated")
                 .withArgs(newSigner.address);
-        });
+    });
 
         it("should change owner", async function () {
             const { token, owner, deployer } = await loadFixture(deployFixture);

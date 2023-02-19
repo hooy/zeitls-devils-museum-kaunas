@@ -11,4 +11,5 @@ export default {
     metadata: [
         { id: 0, uri: "https://api.zeitls.ch/nfts/" },
     ],
+    piecesURI: "ipfs://"
 };

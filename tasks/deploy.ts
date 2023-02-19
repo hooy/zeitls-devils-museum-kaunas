@@ -1,6 +1,6 @@
 import { TransactionReceipt } from "@ethersproject/providers";
 import { task } from "hardhat/config";
-import { DeploymentConfig, DeploymentConfigSchema, DeploymentContract, getState, State } from "./config";
+import { DeploymentConfig, DeploymentContract, getConfig, getState, State } from "./config";
 
 const definition = (config: DeploymentConfig, state: State): DeploymentContract[] => {
     return [
@@ -35,8 +35,7 @@ const definition = (config: DeploymentConfig, state: State): DeploymentContract[
 
 task("deploy", "Deploy Zeitls Devils contracts")
     .setAction(async function (args, { network, ethers, upgrades }) {
-        const raw = await import(`./config/config.${network.name}`);
-        const config = DeploymentConfigSchema.parse(raw.default)
+        const config = await getConfig(network.name);
         const state = getState(network.name);
         const deployment = definition(config, state);
 

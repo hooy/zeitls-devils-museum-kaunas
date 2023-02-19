@@ -20,6 +20,7 @@ export const DeploymentConfigSchema = z.object({
         id: z.number(),
         uri: z.string(),
     })),
+    piecesURI: z.string(),
 });
 
 export type DeploymentConfig = z.infer<typeof DeploymentConfigSchema>;
