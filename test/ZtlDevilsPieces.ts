@@ -12,11 +12,26 @@ describe("ZtlDevilsPieces", () => {
 
         const Treasury = await ethers.getContractFactory("ZtlDevilsTreasury");
         const treasury = await upgrades.deployProxy(Treasury, [ethers.constants.AddressZero]);
-        
+
         const Pieces = await ethers.getContractFactory("ZtlDevilsPieces");
         const pieces = await Pieces.deploy(owner.address, signer.address, treasury.address, ethers.constants.AddressZero, "");
 
         return { deployer, pieces, treasury, owner, signer, buyer, others };
+    }
+
+    function sign(signer: SignerWithAddress, tokenIds: number[], prices: BigNumber[], deadline: number): Promise<string> {
+        let msgHash = ethers.constants.HashZero;
+
+        for (let i = 0; i < tokenIds.length; i++) {
+            const pack = ethers.utils.solidityPack(
+                ["uint256", "uint256", "uint256"],
+                [tokenIds[i], prices[i], deadline]
+            );
+
+            msgHash = ethers.utils.solidityKeccak256(["bytes"], [ethers.utils.concat([msgHash, pack])]);
+        }
+
+        return signer.signMessage(ethers.utils.arrayify(msgHash));
     }
 
     describe("deployment", function () {
@@ -43,6 +58,12 @@ describe("ZtlDevilsPieces", () => {
 
         shouldBehaveLikeERC721("ERC721", ...accounts);
         shouldBehaveLikeERC721Enumerable("ERC721", ...accounts);
+
+        it("supports ERC4906", async function () {
+            const { pieces } = await loadFixture(deployFixture);
+
+            expect(await pieces.supportsInterface("0x49064906")).to.be.true;
+        })
     });
 
     describe("management", function () {
@@ -57,21 +78,6 @@ describe("ZtlDevilsPieces", () => {
     });
 
     describe("purchase", function () {
-        function sign(signer: SignerWithAddress, tokenIds: number[], prices: BigNumber[], deadline: number): Promise<string> {
-            let msgHash = ethers.constants.HashZero; 
-
-            for (let i = 0; i < tokenIds.length; i++) {
-                const pack = ethers.utils.solidityPack(
-                    ["uint256", "uint256", "uint256"],
-                    [tokenIds[i], prices[i], deadline]
-                );
-
-                msgHash = ethers.utils.solidityKeccak256(["bytes"], [ethers.utils.concat([msgHash, pack])]);
-            }
-
-            return signer.signMessage(ethers.utils.arrayify(msgHash));
-        }
-
         it("should purchase single piece", async function () {
             const { pieces, signer, buyer } = await loadFixture(deployFixture);
 
@@ -79,7 +85,7 @@ describe("ZtlDevilsPieces", () => {
             const prices = [ethers.utils.parseEther("1")];
             const deadline = (await time.latest()) + 3600;
 
-            const signature = await sign(signer, tokenIds, prices, deadline); 
+            const signature = await sign(signer, tokenIds, prices, deadline);
 
             const tx = pieces.connect(buyer).purchase(tokenIds, prices, deadline, signature, { value: ethers.utils.parseEther("1") });
 
@@ -87,14 +93,14 @@ describe("ZtlDevilsPieces", () => {
                 .withArgs(ethers.constants.AddressZero, buyer.address, tokenIds[0]);
         });
 
-        it("should purchase many pieces", async function() {
+        it("should purchase many pieces", async function () {
             const { pieces, signer, buyer, treasury } = await loadFixture(deployFixture);
 
             const tokenIds = [1, 100, 1000, 11000];
             const prices = ["0.1", "0.5", "0.3", "0.1"].map(v => ethers.utils.parseEther(v));
             const deadline = (await time.latest()) + 3600;
 
-            const signature = await sign(signer, tokenIds, prices, deadline); 
+            const signature = await sign(signer, tokenIds, prices, deadline);
 
             const tx = pieces.connect(buyer).purchase(tokenIds, prices, deadline, signature, { value: ethers.utils.parseEther("1") });
 
@@ -109,14 +115,14 @@ describe("ZtlDevilsPieces", () => {
             );
         });
 
-        it("should forbid purchase after deadline", async function() {
+        it("should forbid purchase after deadline", async function () {
             const { pieces, signer, buyer } = await loadFixture(deployFixture);
 
             const tokenIds = [1];
             const prices = [ethers.utils.parseEther("1")];
             const deadline = (await time.latest()) + 3600;
 
-            const signature = await sign(signer, tokenIds, prices, deadline); 
+            const signature = await sign(signer, tokenIds, prices, deadline);
 
             await time.increase(3660);
 
@@ -126,7 +132,48 @@ describe("ZtlDevilsPieces", () => {
         });
     });
 
-    describe("metadata", function () {
+    describe("fusion", function () {
+        it("should combine multiple pieces", async function () {
+            const { pieces, buyer, signer } = await loadFixture(deployFixture);
+
+            const tokenIds = [1, 100, 1000, 11000].reverse();
+            const prices = ["0.1", "0.5", "0.3", "0.1"].map(v => ethers.utils.parseEther(v));
+            const deadline = (await time.latest()) + 3600;
+
+            const signature = await sign(signer, tokenIds, prices, deadline);
+
+            await pieces.connect(buyer).purchase(tokenIds, prices, deadline, signature, { value: ethers.utils.parseEther("1") });
+
+            const tx = pieces.connect(buyer).fusion(tokenIds);
+
+            for (const tokenId of tokenIds) {
+                await expect(tx).to.emit(pieces, "Transfer")
+                    .withArgs(buyer.address, ethers.constants.AddressZero, tokenId);
+            }
+
+            await expect(tx).to.emit(pieces, "PiecesFusion").withArgs(1, tokenIds)
+            await expect(tx).to.emit(pieces, "MetadataUpdate").withArgs(1);
+        });
+
+        it("should forbid pieces fusion with not in possession pieces", async function () {
+            const { pieces, buyer, signer, others } = await loadFixture(deployFixture);
+
+            const tokenIds = [1, 100, 1000, 11000];
+            const prices = ["0.1", "0.5", "0.3", "0.1"].map(v => ethers.utils.parseEther(v));
+            const deadline = (await time.latest()) + 3600;
+
+            const signature = await sign(signer, tokenIds, prices, deadline);
+
+            await pieces.connect(buyer).purchase(tokenIds, prices, deadline, signature, { value: ethers.utils.parseEther("1") });
+            
+            const user = others[5];
+
+            await pieces.connect(buyer).transferFrom(buyer.address, user.address, 100);
+
+            const tx = pieces.connect(buyer).fusion(tokenIds);
+
+            await expect(tx).to.be.rejectedWith("Wrong piece owner");
+        });
     });
 
     describe("marketplace", function () {

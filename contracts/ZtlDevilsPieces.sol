@@ -6,15 +6,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "./opensea/IProxyRegistry.sol";
-import "./IZtlDevilsTreasury.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./opensea/IProxyRegistry.sol";
+import "./opensea/IERC4906.sol";
+import "./IZtlDevilsTreasury.sol";
 
 /**
  * @title Zeitls Devil's Piece token contract.
  */
-contract ZtlDevilsPieces is Ownable, ERC721Enumerable {
+contract ZtlDevilsPieces is Ownable, ERC721Enumerable, IERC4906 {
     using ECDSA for bytes32;
+
+    /// @dev This event emits when multiple Devil's pieces are combined into a single large piece.
+    event PiecesFusion(uint256 fusionId, uint256[] pieces);
 
     /// @notice Address which private key signed the permission for a piece mint.
     address public signer;
@@ -40,6 +44,13 @@ contract ZtlDevilsPieces is Ownable, ERC721Enumerable {
         proxyRegistry = _proxyRegistry;
         treasury = _treasury;
         uri = _uri;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view override(IERC165, ERC721Enumerable) returns (bool) {
+        return interfaceId == type(IERC4906).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**
@@ -82,6 +93,26 @@ contract ZtlDevilsPieces is Ownable, ERC721Enumerable {
         }
 
         treasury.keep{ value: totalAmount }();
+    }
+
+    /**
+     * @notice Combine multiple Devil's pieces into one large piece.
+     * Every piece token will be destroyed and create a new one with lowest token id number
+     * @param pieces token ids for fusion. 
+     */
+    function fusion(uint256[] calldata pieces) external {
+        uint256 fusionId = pieces[0];
+
+        for (uint256 i = 0; i < pieces.length; i++) {
+            require(ownerOf(pieces[i]) == _msgSender(), "Wrong piece owner");
+            _burn(pieces[i]);
+            fusionId = fusionId < pieces[i] ? fusionId : pieces[i]; 
+        }
+
+        _safeMint(_msgSender(), fusionId);
+
+        emit PiecesFusion(fusionId, pieces);
+        emit MetadataUpdate(fusionId);
     }
 
     /**
